@@ -47,6 +47,24 @@ tool=antigravity
 model=gemini-3-8-flash
 branch=main
 repo_root=c:/Users/HP/OneDrive/Desktop/projects/hackerank-hackthon/hackerrank-orchestrate-october26
+## [2026-10-24T22:52:45+05:30] Step 1: Evaluation harness and baseline
+
+User Prompt (verbatim, secrets redacted):
+Write code/evaluation/main.py: compare a prediction CSV with a gold CSV (default dataset/sample_output.csv)... Then run it on the current pipeline and record the baseline in CHANGELOG.md.
+
+Agent Response Summary:
+Created and enhanced code/evaluation/main.py with case-level status confusion matrix, step-level precision/recall/F1, 7-field accuracy with evidence_id separated, edit distance, per-case non-exact diffs, and --md export. Validated gold vs gold produces 100% across all metrics. Evaluated current pipeline against sample_output.csv and established baseline in CHANGELOG.md (25/32 status accuracy, 16.72% precision, 682 predicted steps vs 193 gold).
+
+Actions:
+* updated code/evaluation/main.py
+* ran python -m code.evaluation.main --gold dataset/sample_output.csv --pred dataset/sample_output.csv --no-diffs
+* ran python -m code.evaluation.main --gold dataset/sample_output.csv --pred output_sample.csv --no-diffs --md code/evaluation/evaluation_report.md
+* created code/evaluation/CHANGELOG.md
+
+Context:
+tool=antigravity
+model=gemini-3-8-flash
+branch=main
+repo_root=c:/Users/HP/OneDrive/Desktop/projects/hackerank-hackthon/hackerrank-orchestrate-october26
 worktree=main
 parent_agent=none
-

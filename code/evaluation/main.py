@@ -45,7 +45,12 @@ def step_tuple(s: Dict[str, Any], include_evidence: bool = False) -> Tuple:
     )
 
 
-def evaluate(gold_path: Path, pred_path: Path, print_diffs: bool = True):
+def evaluate(
+    gold_path: Path,
+    pred_path: Path,
+    print_diffs: bool = True,
+    md_path: Optional[Path] = None,
+) -> Dict[str, Any]:
     with open(gold_path, "r", encoding="utf-8") as f:
         gold_rows = {r["case_id"]: r for r in csv.DictReader(f)}
 
@@ -65,6 +70,7 @@ def evaluate(gold_path: Path, pred_path: Path, print_diffs: bool = True):
     true_positive_steps = 0
 
     field_counts = {
+        "step_no": [0, 0],
         "phase": [0, 0],
         "system_id": [0, 0],
         "resource_id": [0, 0],
@@ -108,10 +114,11 @@ def evaluate(gold_path: Path, pred_path: Path, print_diffs: bool = True):
 
         # Field-level accuracy for matched index steps
         min_len = min(len(g_steps), len(p_steps))
+        all_7_fields = ["step_no", "phase", "system_id", "resource_id", "operation", "state", "evidence_id"]
         for i in range(min_len):
-            for field in ["phase", "system_id", "resource_id", "operation", "state", "evidence_id"]:
+            for field in all_7_fields:
                 field_counts[field][1] += 1
-                if g_steps[i].get(field, "") == p_steps[i].get(field, ""):
+                if str(g_steps[i].get(field, "")) == str(p_steps[i].get(field, "")):
                     field_counts[field][0] += 1
 
         # Account for length differences in field counts
@@ -146,52 +153,98 @@ def evaluate(gold_path: Path, pred_path: Path, print_diffs: bool = True):
         else 0
     )
 
-    print("================================================================================")
-    print("                    DELETION AUDIT EVALUATION REPORT                            ")
-    print("================================================================================")
-    print(f"Total Cases: {total_cases}")
-    print(f"Status Accuracy: {status_correct}/{total_cases} ({status_acc:.2%})")
-    print(f"Exact Sequence Match (Gold Equivalence): {exact_sequence_matches}/{total_cases} ({seq_acc:.2%})")
-    print(f"Average Levenshtein Edit Distance: {avg_edit_dist:.2f} steps per case\n")
+    lines = []
+    lines.append("================================================================================")
+    lines.append("                    DELETION AUDIT EVALUATION REPORT                            ")
+    lines.append("================================================================================")
+    lines.append(f"Total Cases: {total_cases}")
+    lines.append(f"Status Accuracy: {status_correct}/{total_cases} ({status_acc:.2%})")
+    lines.append(f"Exact Sequence Match (Gold Equivalence): {exact_sequence_matches}/{total_cases} ({seq_acc:.2%})")
+    lines.append(f"Average Levenshtein Edit Distance: {avg_edit_dist:.2f} steps per case\n")
 
-    print("--- Status Confusion Matrix (Rows: Gold, Cols: Predicted) ---")
+    lines.append("--- Status Confusion Matrix (Rows: Gold, Cols: Predicted) ---")
     headers = f"{'Gold \\ Pred':<15}" + "".join(f"{s:<15}" for s in statuses)
-    print(headers)
+    lines.append(headers)
     for g in statuses:
         row = f"{g:<15}" + "".join(f"{confusion_matrix[g][p]:<15}" for p in statuses)
-        print(row)
-    print()
+        lines.append(row)
+    lines.append("")
 
-    print("--- Step-Level Accuracy (phase, system_id, resource_id, operation, state) ---")
-    print(f"Gold Steps Total:      {gold_step_tuples_total}")
-    print(f"Predicted Steps Total: {pred_step_tuples_total}")
-    print(f"True Positive Steps:   {true_positive_steps}")
-    print(f"Step Precision:        {step_precision:.4f} ({step_precision:.2%})")
-    print(f"Step Recall:           {step_recall:.4f} ({step_recall:.2%})")
-    print(f"Step F1 Score:         {step_f1:.4f} ({step_f1:.2%})\n")
+    lines.append("--- Step-Level Accuracy (phase, system_id, resource_id, operation, state) ---")
+    lines.append(f"Gold Steps Total:      {gold_step_tuples_total}")
+    lines.append(f"Predicted Steps Total: {pred_step_tuples_total}")
+    lines.append(f"True Positive Steps:   {true_positive_steps}")
+    lines.append(f"Step Precision:        {step_precision:.4f} ({step_precision:.2%})")
+    lines.append(f"Step Recall:           {step_recall:.4f} ({step_recall:.2%})")
+    lines.append(f"Step F1 Score:         {step_f1:.4f} ({step_f1:.2%})\n")
 
-    print("--- Field-Level Accuracy ---")
+    lines.append("--- Field-Level Accuracy (7 Fields, evidence_id reported separately) ---")
     for field, (correct, total) in field_counts.items():
         acc = correct / total if total else 0
-        print(f"  {field:<15}: {correct:>4}/{total:<4} ({acc:.2%})")
-    print()
+        lines.append(f"  {field:<15}: {correct:>4}/{total:<4} ({acc:.2%})")
+    lines.append("")
 
     if print_diffs and diffs:
-        print("================================================================================")
-        print(f"                     PER-CASE DIFFS ({len(diffs)} NON-EXACT CASES)               ")
-        print("================================================================================")
+        lines.append("================================================================================")
+        lines.append(f"                     PER-CASE DIFFS ({len(diffs)} NON-EXACT CASES)               ")
+        lines.append("================================================================================")
         for item in diffs:
             if isinstance(item, str):
-                print(item)
+                lines.append(item)
                 continue
             cid, gs, ps, g_steps, p_steps, ed = item
-            print(f"\n>>> Case {cid} | Status: Gold={gs}, Pred={ps} | Edit Distance={ed}")
-            print(f"  Gold Steps ({len(g_steps)}):")
+            lines.append(f"\n>>> Case {cid} | Status: Gold={gs}, Pred={ps} | Edit Distance={ed}")
+            lines.append(f"  Gold Steps ({len(g_steps)}):")
             for s in g_steps:
-                print(f"    [{s.get('step_no')}] {s.get('phase')} | {s.get('system_id')} | {s.get('resource_id')} | {s.get('operation')} | {s.get('state')} | ev={s.get('evidence_id')}")
-            print(f"  Pred Steps ({len(p_steps)}):")
+                lines.append(f"    [{s.get('step_no')}] {s.get('phase')} | {s.get('system_id')} | {s.get('resource_id')} | {s.get('operation')} | {s.get('state')} | ev={s.get('evidence_id')}")
+            lines.append(f"  Pred Steps ({len(p_steps)}):")
             for s in p_steps:
-                print(f"    [{s.get('step_no')}] {s.get('phase')} | {s.get('system_id')} | {s.get('resource_id')} | {s.get('operation')} | {s.get('state')} | ev={s.get('evidence_id')}")
+                lines.append(f"    [{s.get('step_no')}] {s.get('phase')} | {s.get('system_id')} | {s.get('resource_id')} | {s.get('operation')} | {s.get('state')} | ev={s.get('evidence_id')}")
+
+    out_text = "\n".join(lines)
+    print(out_text)
+
+    if md_path:
+        md_lines = [
+            "# Evaluation Report",
+            "",
+            "## 1. Case-Level Deletion Status Accuracy",
+            "",
+            f"- **Status Accuracy**: {status_correct}/{total_cases} ({status_acc:.2%})",
+            f"- **Exact Sequence Match**: {exact_sequence_matches}/{total_cases} ({seq_acc:.2%})",
+            f"- **Average Edit Distance**: {avg_edit_dist:.2f} steps per case",
+            "",
+            "### Confusion Matrix",
+            "",
+            "| Gold \\ Pred | COMPLETE | INCOMPLETE | NOT_APPLICABLE |",
+            "| --- | --- | --- | --- |",
+        ]
+        for g in statuses:
+            md_lines.append(f"| **{g}** | {confusion_matrix[g]['COMPLETE']} | {confusion_matrix[g]['INCOMPLETE']} | {confusion_matrix[g]['NOT_APPLICABLE']} |")
+
+        md_lines.extend([
+            "",
+            "## 2. Step-Level Accuracy",
+            "",
+            f"- **Gold Steps Total**: {gold_step_tuples_total}",
+            f"- **Predicted Steps Total**: {pred_step_tuples_total}",
+            f"- **True Positive Steps**: {true_positive_steps}",
+            f"- **Step Precision**: {step_precision:.4f} ({step_precision:.2%})",
+            f"- **Step Recall**: {step_recall:.4f} ({step_recall:.2%})",
+            f"- **Step F1**: {step_f1:.4f} ({step_f1:.2%})",
+            "",
+            "## 3. Field-Level Accuracy",
+            "",
+            "| Field | Correct / Total | Accuracy |",
+            "| --- | --- | --- |",
+        ])
+        for field, (correct, total) in field_counts.items():
+            acc = correct / total if total else 0
+            md_lines.append(f"| `{field}` | {correct} / {total} | {acc:.2%} |")
+
+        md_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(md_lines) + "\n")
 
     return {
         "status_accuracy": status_acc,
@@ -199,6 +252,7 @@ def evaluate(gold_path: Path, pred_path: Path, print_diffs: bool = True):
         "step_precision": step_precision,
         "step_recall": step_recall,
         "step_f1": step_f1,
+        "avg_edit_distance": avg_edit_dist,
     }
 
 
@@ -207,9 +261,11 @@ def main():
     parser.add_argument("--gold", type=Path, default=Path(__file__).resolve().parent.parent.parent / "dataset" / "sample_output.csv")
     parser.add_argument("--pred", type=Path, default=Path(__file__).resolve().parent.parent.parent / "output.csv")
     parser.add_argument("--diffs", action="store_true", default=True)
+    parser.add_argument("--no-diffs", action="store_false", dest="diffs")
+    parser.add_argument("--md", type=Path, default=None)
 
     args = parser.parse_args()
-    evaluate(args.gold, args.pred, print_diffs=args.diffs)
+    evaluate(args.gold, args.pred, print_diffs=args.diffs, md_path=args.md)
 
 
 if __name__ == "__main__":
