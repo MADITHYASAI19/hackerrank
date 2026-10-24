@@ -97,6 +97,25 @@ def extract_sql_evidence(file_path: Path, file_id: str, default_captured_at: Opt
                     if st in ("DELETED", "PURGED"):
                         state_hint = "ABSENT"
 
+                # Check if record_json is present and unpack it
+                combined_identifiers = dict(row_dict)
+                user_ref = str(row_dict.get("user_id") or row_dict.get("customer_reference") or row_dict.get("subject_reference") or "")
+                
+                if "record_json" in row_dict and row_dict["record_json"]:
+                    try:
+                        import json
+                        nested = json.loads(str(row_dict["record_json"]))
+                        if isinstance(nested, dict):
+                            combined_identifiers.update(nested)
+                            if not user_ref:
+                                user_ref = str(nested.get("user_id") or nested.get("customer_reference") or nested.get("subject_reference") or "")
+                            if "document" in nested and isinstance(nested["document"], dict):
+                                combined_identifiers.update(nested["document"])
+                                if not user_ref:
+                                    user_ref = str(nested["document"].get("customer_reference") or nested["document"].get("user_id") or "")
+                    except Exception:
+                        pass
+
                 records.append(
                     ExtractedRecord(
                         file_id=file_id,
@@ -104,8 +123,8 @@ def extract_sql_evidence(file_path: Path, file_id: str, default_captured_at: Opt
                         system_id=sys_id,
                         resource_id=res_id,
                         category=cat,
-                        user_ref=str(row_dict.get("user_id") or row_dict.get("customer_reference") or row_dict.get("subject_reference") or ""),
-                        identifiers=row_dict,
+                        user_ref=user_ref,
+                        identifiers=combined_identifiers,
                         state_hint=state_hint,
                         raw=row_dict,
                         source_table=tbl,
@@ -113,5 +132,6 @@ def extract_sql_evidence(file_path: Path, file_id: str, default_captured_at: Opt
                 )
     finally:
         conn.close()
+
 
     return records

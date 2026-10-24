@@ -33,13 +33,15 @@ class IdentitySet:
         Does NOT match on names alone (to avoid look-alike collisions).
         """
         matched = []
+        uid_pat = rf"(?<![a-zA-Z0-9_]){re.escape(self.user_id)}(?![a-zA-Z0-9_])" if self.user_id else None
+
         if isinstance(text_or_dict, dict):
             for k, v in text_or_dict.items():
                 if not v:
                     continue
                 v_str = str(v)
                 # Check user_id
-                if self.user_id and (v_str == self.user_id or self.user_id in v_str):
+                if self.user_id and (v_str == self.user_id or (uid_pat and re.search(uid_pat, v_str))):
                     matched.append(("user_id", self.user_id))
                 # Check email
                 v_email = normalize_email(v_str)
@@ -56,19 +58,22 @@ class IdentitySet:
         else:
             text = str(text_or_dict)
             text_lower = text.lower()
-            if self.user_id and self.user_id in text:
+            if self.user_id and uid_pat and re.search(uid_pat, text):
                 matched.append(("user_id", self.user_id))
             for em in self.emails:
-                if em in text_lower:
+                em_pat = rf"(?<![a-zA-Z0-9_.+-]){re.escape(em)}(?![a-zA-Z0-9_.+-])"
+                if re.search(em_pat, text_lower):
                     matched.append(("email", em))
             for h in self.email_hashes:
-                if h in text_lower:
+                h_pat = rf"(?<![a-zA-Z0-9]){re.escape(h)}(?![a-zA-Z0-9])"
+                if re.search(h_pat, text_lower):
                     matched.append(("email_hash", h))
             for pd in self.phone_digits:
                 if len(pd) >= 7 and pd in re.sub(r"\D", "", text):
                     matched.append(("phone", pd))
 
         return list(set(matched))
+
 
 
 def resolve_identity(email: str, dataset: Dataset) -> Optional[IdentitySet]:

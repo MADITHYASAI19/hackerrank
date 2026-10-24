@@ -52,12 +52,15 @@ def build_case_view(
     audit_at: Optional[datetime],
     all_records: List[ExtractedRecord],
     dataset: Dataset,
+    requested_at: Optional[datetime] = None,
+    reported_at: Optional[datetime] = None,
 ) -> Dict[str, ResourceState]:
     """Reconstruct state of all candidate resources for a user at audit_at."""
     # 1. Candidate resources:
     # - Catalog links in system_activity
     # - Direct identifier matches in records
     # - Activities mentioning user_id or emails
+    # - Deletion worker events during request window
     candidate_res_ids: Set[str] = set()
     res_to_system: Dict[str, str] = {}
     res_to_category: Dict[str, str] = {}
@@ -71,10 +74,18 @@ def build_case_view(
         details = act.get("details", "")
         # Check if user matches
         matches = identity.matches(details)
-        if matches or (act.get("resource_id") and any(em in details for em in identity.emails)):
+        if matches:
             res_id = act.get("resource_id", "")
             if res_id:
                 candidate_res_ids.add(res_id)
+
+        # Deletion worker primary account submission in the request processing window
+        if requested_at and act_time and requested_at <= act_time <= (reported_at or audit_at):
+            if act.get("source_system") == "deletion_worker" and act.get("target_system") == "account_service":
+                res_id = act.get("resource_id", "")
+                if res_id:
+                    candidate_res_ids.add(res_id)
+
 
     # Check extracted records up to audit_at
     matching_records_by_res: Dict[str, List[ExtractedRecord]] = {}

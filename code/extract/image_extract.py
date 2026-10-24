@@ -35,12 +35,12 @@ def extract_image_evidence(file_path: Path, file_id: str, default_captured_at: O
 
     found_resources = set(res_matches)
     if not found_resources:
-        # Check stem
         stem_m = re.findall(r"\b(account_\d+|support_\d+|export_\d+|audit_record_\d+|search_\d+|analytics_\d+|tombstone_\d+)\b", file_path.stem)
         if stem_m:
             found_resources = set(stem_m)
         else:
-            found_resources = {file_path.stem}
+            return records
+
 
     for res_id in found_resources:
         sys_id = "console_service"

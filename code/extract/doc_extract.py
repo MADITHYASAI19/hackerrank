@@ -40,8 +40,8 @@ def extract_doc_evidence(file_path: Path, file_id: str, default_captured_at: Opt
 
     found_resources = set(res_matches)
     if not found_resources:
-        # Create a document record
-        found_resources = {file_path.stem}
+        return records
+
 
     for res_id in found_resources:
         sys_id = "document_service"

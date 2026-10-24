@@ -73,8 +73,19 @@ def run_audit(
             })
             continue
 
+        req_at = parse_ts(req.get("requested_at", ""))
+        rep_at = parse_ts(req.get("reported_at", ""))
+
         # 3. State reconstruction at audit_at
-        case_view = build_case_view(ident, audit_at, all_records, dataset)
+        case_view = build_case_view(
+            ident,
+            audit_at,
+            all_records,
+            dataset,
+            requested_at=req_at,
+            reported_at=rep_at,
+        )
+
 
         # 4. Policy evaluation
         decisions = [evaluate_policy(res_state) for res_state in case_view.values()]

@@ -54,6 +54,34 @@ def extract_log_evidence(file_path: Path, file_id: str, default_captured_at: Opt
         elif "customer_email=null" in line_clean:
             state_hint = "ANONYMIZED"
 
+        # Parse all key=value pairs
+        pairs = re.findall(r'(\w+)=(?:"([^"]*)"|\'([^\']*)\'|([^\s]+))', line_clean)
+        log_attrs = {}
+        for k, v1, v2, v3 in pairs:
+            val = v1 or v2 or v3
+            log_attrs[k] = val
+
+        # Extract user_ref if present in attributes
+        user_ref = str(
+            log_attrs.get("subject_ref")
+            or log_attrs.get("subject_reference")
+            or log_attrs.get("lookup_key")
+            or log_attrs.get("correlation_key")
+            or log_attrs.get("customer_reference")
+            or log_attrs.get("user_id")
+            or ""
+        )
+        if not user_ref.startswith("user_"):
+            # Check if any attribute value looks like a user_id
+            for v in log_attrs.values():
+                m_uid = re.search(r"\buser_\d+\b", str(v))
+                if m_uid:
+                    user_ref = m_uid.group(0)
+                    break
+
+        # Also store original line for regex fallback
+        log_attrs["raw_log"] = line_clean
+
         records.append(
             ExtractedRecord(
                 file_id=file_id,
@@ -61,8 +89,8 @@ def extract_log_evidence(file_path: Path, file_id: str, default_captured_at: Opt
                 system_id=sys_id,
                 resource_id=res_id,
                 category=cat,
-                user_ref="",
-                identifiers={"raw_log": line_clean},
+                user_ref=user_ref,
+                identifiers=log_attrs,
                 state_hint=state_hint,
                 raw=line_clean,
                 source_table="log_file",
@@ -70,3 +98,4 @@ def extract_log_evidence(file_path: Path, file_id: str, default_captured_at: Opt
         )
 
     return records
+
