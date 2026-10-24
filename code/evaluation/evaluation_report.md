@@ -2,35 +2,35 @@
 
 ## 1. Case-Level Deletion Status Accuracy
 
-- **Status Accuracy**: 25/32 (78.12%)
+- **Status Accuracy**: 23/32 (71.88%)
 - **Exact Sequence Match**: 1/32 (3.12%)
-- **Average Edit Distance**: 19.12 steps per case
+- **Average Edit Distance**: 21.56 steps per case
 
 ### Confusion Matrix
 
 | Gold \ Pred | COMPLETE | INCOMPLETE | NOT_APPLICABLE |
 | --- | --- | --- | --- |
-| **COMPLETE** | 4 | 6 | 0 |
-| **INCOMPLETE** | 1 | 21 | 0 |
+| **COMPLETE** | 1 | 9 | 0 |
+| **INCOMPLETE** | 0 | 22 | 0 |
 | **NOT_APPLICABLE** | 0 | 0 | 0 |
 
 ## 2. Step-Level Accuracy
 
 - **Gold Steps Total**: 193
-- **Predicted Steps Total**: 682
-- **True Positive Steps**: 114
-- **Step Precision**: 0.1672 (16.72%)
-- **Step Recall**: 0.5907 (59.07%)
-- **Step F1**: 0.2606 (26.06%)
+- **Predicted Steps Total**: 801
+- **True Positive Steps**: 155
+- **Step Precision**: 0.1935 (19.35%)
+- **Step Recall**: 0.8031 (80.31%)
+- **Step F1**: 0.3119 (31.19%)
 
 ## 3. Field-Level Accuracy
 
 | Field | Correct / Total | Accuracy |
 | --- | --- | --- |
-| `step_no` | 178 / 697 | 25.54% |
-| `phase` | 72 / 697 | 10.33% |
-| `system_id` | 48 / 697 | 6.89% |
-| `resource_id` | 31 / 697 | 4.45% |
-| `operation` | 40 / 697 | 5.74% |
-| `state` | 76 / 697 | 10.90% |
-| `evidence_id` | 66 / 697 | 9.47% |
+| `step_no` | 192 / 802 | 23.94% |
+| `phase` | 53 / 802 | 6.61% |
+| `system_id` | 39 / 802 | 4.86% |
+| `resource_id` | 10 / 802 | 1.25% |
+| `operation` | 25 / 802 | 3.12% |
+| `state` | 59 / 802 | 7.36% |
+| `evidence_id` | 95 / 802 | 11.85% |

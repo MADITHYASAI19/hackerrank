@@ -72,14 +72,32 @@ def build_case_view(
             continue
 
         details = act.get("details", "")
-        # Check if user matches
-        matches = identity.matches(details)
-        if matches:
+        # Only consider activities that explicitly link a resource to the user
+        # via LINK_RESOURCE_IDENTITY or contain a direct identifier in a structured field.
+        # Older generic matching on free‑form details is removed to avoid over‑matching decoys.
+        if act.get("activity_type") == "LINK_RESOURCE_IDENTITY":
+            # The activity should contain a user identifier (email, phone, hash, or user_id)
+            # in its details field. We reuse the IdentitySet matcher for the structured JSON.
+            try:
+                details_json = json.loads(act.get("details", "{}"))
+            except Exception:
+                details_json = {}
+            if identity.matches(details_json):
+                res_id = act.get("resource_id", "")
+                if res_id:
+                    candidate_res_ids.add(res_id)
+        # Additionally, consider explicit audit log joins (profile_lookup_started/completed)
+        if act.get("activity_type") == "PROFILE_LOOKUP_STARTED":
+            lookup_key = act.get("lookup_key", "")
+            if identity.matches({"lookup_key": lookup_key}):
+                # Store the key to match later when the completed event appears
+                act["_lookup_key_match"] = True
+        if act.get("activity_type") == "PROFILE_LOOKUP_COMPLETED" and act.get("_lookup_key_match"):
             res_id = act.get("resource_id", "")
             if res_id:
                 candidate_res_ids.add(res_id)
 
-        # Deletion worker primary account submission in the request processing window
+        # Deletion worker primary account submission handling remains unchanged
         if requested_at and act_time and requested_at <= act_time <= (reported_at or audit_at):
             if act.get("source_system") == "deletion_worker" and act.get("target_system") == "account_service":
                 res_id = act.get("resource_id", "")
