@@ -33,15 +33,15 @@ class IdentitySet:
         Does NOT match on names alone (to avoid look-alike collisions).
         """
         matched = []
-        uid_pat = rf"(?<![a-zA-Z0-9_]){re.escape(self.user_id)}(?![a-zA-Z0-9_])" if self.user_id else None
+        uid_pat = re.compile(rf"(?<![A-Za-z0-9_]){re.escape(self.user_id)}(?![A-Za-z0-9_])") if self.user_id else None
 
         if isinstance(text_or_dict, dict):
             for k, v in text_or_dict.items():
                 if not v:
                     continue
                 v_str = str(v)
-                # Check user_id
-                if self.user_id and (v_str == self.user_id or (uid_pat and re.search(uid_pat, v_str))):
+                # Check user_id token match
+                if uid_pat and uid_pat.search(v_str):
                     matched.append(("user_id", self.user_id))
                 # Check email
                 v_email = normalize_email(v_str)
